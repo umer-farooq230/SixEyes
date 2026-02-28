@@ -1,4 +1,4 @@
-# Volatility Regime Detection Library
+# QuantVol
 
 ## Overview
 
