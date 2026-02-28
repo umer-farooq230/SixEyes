@@ -48,5 +48,5 @@ class GarmanKlass:
 
         if self.annualize:
             vol *= np.sqrt(self.periods_per_year)
-
+ 
         return vol.values
