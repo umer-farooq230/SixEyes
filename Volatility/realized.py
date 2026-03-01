@@ -16,6 +16,9 @@ class RollingSTD():
 
         return vol.values
 
+    def predict(self, **kwargs):
+        vol = self.compute(**kwargs)
+        return np.roll(vol, 1)
 
 class EWMA():
     def __init__(self, alpha:float, days_per_annum, span, annualize:bool=True):
@@ -40,5 +43,6 @@ class EWMA():
         
         return vol
     
-
-    
+    def predict(self, **kwargs):
+        vol = self.compute(**kwargs)
+        return np.roll(vol, 1)    
