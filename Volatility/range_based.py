@@ -4,10 +4,10 @@ import pandas as pd
 
 
 class Parkinson:
-    def __init__(self, window: int, annualize: bool = True, periods_per_year: int = 252):
+    def __init__(self, window: int, annualize: bool = True, days_per_annum: int = 252):
         self.window = window
         self.annualize = annualize
-        self.periods_per_year = periods_per_year
+        self.days_per_annum = days_per_annum
 
     def compute(self, high: np.ndarray, low: np.ndarray) -> np.ndarray:
         log_hl = np.log(high / low)
@@ -19,15 +19,23 @@ class Parkinson:
         vol = np.sqrt(rolling_var)
 
         if self.annualize:
-            vol *= np.sqrt(self.periods_per_year)
+            vol *= np.sqrt(self.days_per_annum)
 
         return vol.values
 
+    def predict(self, horizon: int = 1, **kwargs):
+        vol = self.compute(**kwargs)
+    
+        forecast = np.full_like(vol, np.nan, dtype=float)
+        forecast[horizon:] = vol[:-horizon]
+    
+        return forecast    
+
 class GarmanKlass:
-    def __init__(self, window: int, annualize: bool = True, periods_per_year: int = 252):
+    def __init__(self, window: int, annualize: bool = True, days_per_annum: int = 252):
         self.window = window
         self.annualize = annualize
-        self.periods_per_year = periods_per_year
+        self.days_per_annum = days_per_annum
 
     def compute(self, open_: np.ndarray,
                       high: np.ndarray,
@@ -47,6 +55,14 @@ class GarmanKlass:
         vol = np.sqrt(rolling_var)
 
         if self.annualize:
-            vol *= np.sqrt(self.periods_per_year)
+            vol *= np.sqrt(self.days_per_annum)
  
         return vol.values
+    
+    def predict(self, horizon: int = 1, **kwargs):
+        vol = self.compute(**kwargs)
+    
+        forecast = np.full_like(vol, np.nan, dtype=float)
+        forecast[horizon:] = vol[:-horizon]
+    
+        return forecast    

@@ -16,9 +16,13 @@ class RollingSTD():
 
         return vol.values
 
-    def predict(self, **kwargs):
+    def predict(self, horizon: int = 1, **kwargs):
         vol = self.compute(**kwargs)
-        return np.roll(vol, 1)
+    
+        forecast = np.full_like(vol, np.nan, dtype=float)
+        forecast[horizon:] = vol[:-horizon]
+    
+        return forecast    
 
 class EWMA():
     def __init__(self, alpha:float, days_per_annum, span, annualize:bool=True):
@@ -43,6 +47,10 @@ class EWMA():
         
         return vol
     
-    def predict(self, **kwargs):
+    def predict(self, horizon: int = 1, **kwargs):
         vol = self.compute(**kwargs)
-        return np.roll(vol, 1)    
+
+        forecast = np.full_like(vol, np.nan, dtype=float)
+        forecast[horizon:] = vol[:-horizon]
+
+        return forecast    
