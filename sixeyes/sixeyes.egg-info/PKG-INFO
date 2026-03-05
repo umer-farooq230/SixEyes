@@ -1,3 +1,20 @@
+Metadata-Version: 2.4
+Name: sixeyes
+Version: 0.2.0
+Summary: A Python library for quantitative analysis of volatility patterns and regime dynamics.
+Author-email: Umer Farooq <umerfarooq230@gmail.com>
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: pandas
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: matplotlib; extra == "dev"
+Requires-Dist: scipy; extra == "dev"
+Requires-Dist: statsmodels; extra == "dev"
+Dynamic: license-file
+
 # SixEyes
 
 A Python library for volatility estimation, regime analysis, and hidden state modeling in financial time series.

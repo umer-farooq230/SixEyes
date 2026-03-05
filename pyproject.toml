@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sixeyes"
-version = "0.1.1"
+version = "0.2.0"
 description = "A Python library for quantitative analysis of volatility patterns and regime dynamics."
-authors = [{ name = "Umer Farooq" }]
+authors = [{ name = "Umer Farooq", email = "umerfarooq230@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.9"
 
@@ -19,4 +19,4 @@ dependencies = [
 dev = ["pytest", "matplotlib", "scipy", "statsmodels"]
 
 [tool.setuptools.packages.find]
-where = ["Volatility"]
+where = ["sixeyes"]
