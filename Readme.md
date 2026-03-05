@@ -1,144 +1,189 @@
-# QuantVol
+# SixEyes
 
-## Overview
+A Python library for volatility estimation, regime analysis, and hidden state modeling in financial time series.
 
-This library is designed to help analyze financial time series by answering a core question:
-
-> **“Given historical returns, what volatility regime are we in right now?”**
-
-It focuses on **volatility state detection** using multiple volatility measures and unsupervised models, with a clean separation between computation and modeling layers.
+**SixEyes** is designed for quantitative teams and research groups that require transparent, modular, and production-aligned volatility forecasting infrastructure.
 
 ---
 
-## Project Structure
+## Modules
 
-The project is structured into modular components to ensure clarity, extensibility, and maintainability:
-
-├── Volatility/ # Volatility feature computation
-├── RegimeModel/ # Unsupervised regime detection models
-
-
-### Volatility/
-
-Contains implementations of various volatility estimators:
-
-- Rolling / realized volatility  
-- EWMA volatility  
-- Range-based volatility (planned)  
-- Downside / asymmetric volatility (planned)  
-
-### RegimeModel/
-
-Contains unsupervised models for detecting latent volatility regimes:
-
-- Hidden Markov Models (HMM)  
-- Clustering-based approaches  
-- Configurable number of regimes  
+| Module | Status | Description |
+|---|---|---|
+| `Volatility` | Available | Rolling, EWMA, range-based, asymmetric, and vol-of-vol estimators |
+| `RegimeModel` | In development | Regime-switching models for structural break detection |
 
 ---
 
-## Current Progress (Release 0.1)
-
-### Implemented
-
-- ✅ Rolling standard deviation (stateless)  
-- ✅ EWMA volatility with span / alpha support  
-- ✅ Structured modular project layout  
-
-### Design Principles
-
-- Clear separation between **feature computation** and **regime modeling**  
-- Extensible architecture  
-- Clean and simple interfaces  
-- Model-agnostic feature pipeline  
+## Installation
+```bash
+pip install sixeyes
+```
 
 ---
 
-## Features Planned for Release 1
+## Setup & Testing 
 
-### Volatility Feature Extraction
+All examples below use S&P 500 daily OHLC data pulled from Yahoo Finance.
+```python
+import yfinance as yf
+import numpy as np
 
-- Realized volatility (rolling standard deviation)  
-- EWMA volatility (span / half-life support)  
-- Range-based volatility:
-  - Parkinson estimator  
-  - Garman–Klass estimator  
-- Downside / asymmetric volatility measures  
-
-### Regime Detection
-
-- HMM-based volatility state modeling  
-- Clustering-based regime detection  
-- Configurable number of volatility regimes  
-- Standardized model interface  
-
-### Pipeline
-
-- Integrated feature extractor + regime model  
-- Clean input / output structure  
-- Unified API for:
-  - `fit()`  
-  - `predict()`  
-  - `transform()`  
-  - Regime probability outputs  
+df = yf.download("^GSPC", start="2020-01-01", end="2024-12-31")
+returns = np.log(df["Close"] / df["Close"].shift(1)).dropna()
+```
 
 ---
 
-## Future Enhancements
+## Volatility
 
-### Forecasting
+### Rolling Standard Deviation
 
-- GARCH-based forecasting  
-- Regime-conditioned volatility prediction  
+Close-to-close log return vol over a fixed 21-day window.
+```python
+from Volatility.realized import RollingSTD
 
-### Stress Testing & Simulation
-
-- Volatility scenario simulation  
-- Regime-switching stress testing tools  
-
-### Diagnostics
-
-- Regime entropy  
-- Persistence metrics  
-- Stability analysis  
-
-### Advanced Capabilities
-
-- Streaming support for high-frequency data  
-- Integration with financial data sources:
-  - OHLC data  
-  - Returns  
-  - Cryptocurrency data  
-  - Other asset classes  
+model = RollingSTD(window_size=21, days_per_annum=252, annualize=True)
+vol = model.compute(returns)
+```
 
 ---
 
-## Vision
+### EWMA
 
-This library aims to become a lightweight but extensible framework for:
+Same as rolling std but decays older observations — a spike in March weights less by April. RiskMetrics standard is `alpha=0.94` for daily data.
+```python
+from Volatility.realized import EWMA
 
-- Volatility analytics  
-- Regime detection  
-- Risk modeling research  
-- Quantitative finance experimentation  
-
----
-
-## Status
-
-🚧 Active development  
-📦 Current Version: `0.1`  
-🎯 Target: Robust volatility regime detection framework  
+model = EWMA(alpha=0.94, span=20, days_per_annum=252, annualize=True)
+vol = model.compute(returns.values)
+```
 
 ---
 
-## Contributing
+### Parkinson
 
-Contributions, suggestions, and discussions are welcome.  
-Please open an issue or submit a pull request.
+Replaces close-to-close returns with the daily high-low range — more efficient for FX or futures where overnight gaps are small.
+```python
+from Volatility.range_based import Parkinson
+
+model = Parkinson(window=21, annualize=True)
+vol = model.compute(df["High"].values, df["Low"].values)
+```
 
 ---
+
+### Garman-Klass
+
+Uses all four OHLC prices — the most efficient classical daily estimator for equities where the open-close drift matters.
+```python
+from Volatility.range_based import GarmanKlass
+
+model = GarmanKlass(window=21, annualize=True)
+vol = model.compute(
+    open_=df["Open"].values,
+    high=df["High"].values,
+    low=df["Low"].values,
+    close=df["Close"].values,
+)
+```
+
+---
+
+### Downside Volatility
+
+Computes vol using only negative return days — separates loss dispersion from gain dispersion, which rolling std conflates.
+```python
+from Volatility.assymetric import DownSideVolatility
+
+model = DownSideVolatility(window=21, annualize=True)
+downside_vol = model.compute(returns.values)
+
+# Sortino ratio
+ann_return = returns.mean() * 252
+sortino = (ann_return - 0.05) / downside_vol[-1]
+```
+
+---
+
+### Vol of Vol
+
+Rolling standard deviation of a vol series — measures how much volatility is itself moving day to day.
+```python
+from Volatility.vol_of_vol import VolOfVol
+from Volatility.realized import EWMA
+
+ewma_vol = EWMA(alpha=0.94, span=20, days_per_annum=252).compute(returns.values)
+
+model = VolOfVol(window=21)
+vov = model.compute(ewma_vol)
+```
+
+---
+
+## Forecasting and Evaluation
+
+Each estimator's `predict(horizon)` shifts the vol series forward to produce a persistence forecast. `evaluate()` scores it against future realized vol using RMSE — useful for choosing the right estimator per instrument.
+```python
+from Volatility.range_based import Parkinson, GarmanKlass
+from Volatility.realized import EWMA
+from Volatility.evaluation import evaluate
+
+high, low = df["High"].values, df["Low"].values
+r = returns.values
+
+results = {
+    "Parkinson":   evaluate(Parkinson(21, annualize=False), r, {"high": high, "low": low}, horizon=5),
+    "GarmanKlass": evaluate(GarmanKlass(21, annualize=False), r, {"open_": df["Open"].values, "high": high, "low": low, "close": df["Close"].values}, horizon=5),
+    "EWMA":        evaluate(EWMA(0.94, 252, 20, annualize=False), r, {"returns": r}, horizon=5),
+}
+
+for name, rmse in results.items():
+    print(f"{name:12s}  RMSE: {rmse:.6f}")
+```
+
+---
+
+## Putting It Together
+```python
+import pandas as pd
+import numpy as np
+import yfinance as yf
+from Volatility.realized    import RollingSTD, EWMA
+from Volatility.range_based import GarmanKlass
+from Volatility.assymetric  import DownSideVolatility
+from Volatility.vol_of_vol  import VolOfVol
+
+df      = yf.download("^GSPC", start="2020-01-01", end="2024-12-31")
+returns = np.log(df["Close"] / df["Close"].shift(1)).dropna()
+r       = returns.values
+ev      = EWMA(alpha=0.94, span=20, days_per_annum=252).compute(r)
+
+summary = pd.DataFrame({
+    "rolling":    RollingSTD(21, 252).compute(returns),
+    "ewma":       ev,
+    "gk":         GarmanKlass(21).compute(df.Open.values, df.High.values, df.Low.values, df.Close.values),
+    "downside":   DownSideVolatility(21, annualize=True).compute(r),
+    "vol_of_vol": VolOfVol(21).compute(ev),
+}, index=returns.index)
+
+print(summary.tail(3))
+```
+
+---
+
+## RegimeModel *(coming soon)*
+
+The `RegimeModel` module will provide regime-switching models for identifying structural breaks and latent market states. Planned:
+
+- Hidden Markov Model state estimation
+- Regime-conditional vol and return statistics
+- Transition probability matrices
+- State sequence visualization
+
+---
+
 
 ## License
 
-_To be determined._
+MIT License © Umer Farooq
